@@ -1,109 +1,75 @@
-// content.js
-// This script runs on GitHub pages to enhance the user experience
-
-// When on a commit page, add a button to analyze the commit
-if (window.location.href.includes('/commit/')) {
-    // Create the analyze button
-    const analyzeButton = document.createElement('button');
-    analyzeButton.textContent = 'Analyze with Gemini';
-    analyzeButton.style.cssText = `
-      background-color: #2ea44f;
-      color: white;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      margin-left: 10px;
-    `;
-    
-    // Find a good spot to inject the button (near the commit title)
-    const commitTitle = document.querySelector('.commit-title');
-    if (commitTitle) {
-      commitTitle.parentNode.insertBefore(analyzeButton, commitTitle.nextSibling);
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.action === 'getCode') {
+      // Extract code from GitHub page
+      let code = '';
       
-      // Add click handler
-      analyzeButton.addEventListener('click', function() {
-        // Extract repository owner and name from URL
-        const urlParts = window.location.pathname.split('/');
-        const repoOwner = urlParts[1];
-        const repoName = urlParts[2];
-        const commitHash = urlParts[4];
-        
-        // Send message to the background script
-        analyzeButton.textContent = 'Analyzing...';
-        analyzeButton.disabled = true;
-        
-        chrome.runtime.sendMessage({
-          action: 'page-commit-analysis',
-          repoOwner: repoOwner,
-          repoName: repoName,
-          commitHash: commitHash
-        }, function(response) {
-          analyzeButton.textContent = 'Analyze with Gemini';
-          analyzeButton.disabled = false;
-          
-          if (response && response.success) {
-            // Open the report page
-            chrome.runtime.sendMessage({
-              action: 'open-report-tab'
-            });
-          } else {
-            alert('Error analyzing commit. Please check extension settings.');
+      // Check if we're on a file view page
+      const fileContent = document.querySelector('.blob-wrapper');
+      if (fileContent) {
+        code = fileContent.textContent;
+      } 
+      // Check if we're on a pull request page
+      else {
+        const diffElements = document.querySelectorAll('.diff-view .file');
+        if (diffElements.length > 0) {
+          diffElements.forEach(diff => {
+            const fileName = diff.querySelector('.file-header').getAttribute('data-path');
+            const diffContent = diff.querySelector('.diff-table').textContent;
+            code += `File: ${fileName}\n\n${diffContent}\n\n`;
+          });
+        }
+      }
+      
+      sendResponse({ code: code });
+      return true;
+    }
+    
+    if (request.action === 'getRepoInfo') {
+      // Extract repository information
+      const repoData = {};
+      
+      // Get repository name and owner
+      const repoHeader = document.querySelector('meta[name="octolytics-dimension-repository_nwo"]');
+      if (repoHeader) {
+        const repoFullName = repoHeader.getAttribute('content');
+        const [owner, repo] = repoFullName.split('/');
+        repoData.owner = owner;
+        repoData.name = repo;
+        repoData.fullName = repoFullName;
+      }
+      
+      // Get repository description
+      const descriptionElement = document.querySelector('.f4.my-3');
+      if (descriptionElement) {
+        repoData.description = descriptionElement.textContent.trim();
+      }
+      
+      // Get programming languages
+      const languageElements = document.querySelectorAll('.d-inline-flex.flex-items-center.flex-nowrap.link-gray.no-underline.text-small.mr-3');
+      if (languageElements.length > 0) {
+        repoData.languages = [];
+        languageElements.forEach(lang => {
+          const langName = lang.textContent.trim();
+          if (langName) {
+            repoData.languages.push(langName);
           }
         });
-      });
+      }
+      
+      // Get file structure (if on code tab)
+      const fileElements = document.querySelectorAll('.js-navigation-item');
+      if (fileElements.length > 0) {
+        repoData.files = [];
+        fileElements.forEach(file => {
+          const fileNameElement = file.querySelector('.js-navigation-open');
+          if (fileNameElement) {
+            repoData.files.push(fileNameElement.textContent.trim());
+          }
+        });
+      }
+      
+      sendResponse({ repoData: repoData });
+      return true;
     }
-  }
+  });
   
-  // When on a repository homepage, add a button to generate README
-  if (window.location.pathname.split('/').length === 3 && !window.location.pathname.includes('/commit/')) {
-    // Create the README button
-    const readmeButton = document.createElement('button');
-    readmeButton.textContent = 'Generate README with Gemini';
-    readmeButton.style.cssText = `
-      background-color: #0366d6;
-      color: white;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      margin-left: 10px;
-    `;
-    
-    // Find a good spot to inject the button (near the repository name)
-    const repoHeader = document.querySelector('.d-flex.flex-wrap.flex-items-center.wb-break-word.f3.text-normal');
-    if (repoHeader) {
-      repoHeader.appendChild(readmeButton);
-      
-      // Add click handler
-      readmeButton.addEventListener('click', function() {
-        // Extract repository owner and name from URL
-        const urlParts = window.location.pathname.split('/');
-        const repoOwner = urlParts[1];
-        const repoName = urlParts[2];
-        
-        // Send message to the background script
-        readmeButton.textContent = 'Generating...';
-        readmeButton.disabled = true;
-        
-        chrome.runtime.sendMessage({
-          action: 'page-readme-generation',
-          repoOwner: repoOwner,
-          repoName: repoName
-        }, function(response) {
-          readmeButton.textContent = 'Generate README with Gemini';
-          readmeButton.disabled = false;
-          
-          if (response && response.success) {
-            alert('README generated successfully! Check your downloads folder.');
-          } else {
-            alert('Error generating README. Please check extension settings.');
-          }
-        });
-      });
-    }
-  }

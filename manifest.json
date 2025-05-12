@@ -1,24 +1,25 @@
-
 {
-    "manifest_version": 3,
-    "name": "GitHub Analyzer",
-    "version": "1.0",
-    "description": "Analyze GitHub commits and generate README files using Gemini AI",
-    "permissions": ["activeTab", "storage", "scripting"],
-    "host_permissions": [
-      "https://api.github.com/*"
-    ],
-    "action": {
-  "default_popup": "popup.html",
-  "default_icon": "icon48.png"
-},
-    "background": {
-      "service_worker": "background.js"
-    },
-    "content_scripts": [
-      {
-        "matches": ["https://github.com/*"],
-        "js": ["content.js"]
-      }
-    ]
-  }
+  "name": "GitHub Code Analyzer with Gemini",
+  "version": "1.0",
+  "description": "Analyze GitHub code using Google's Gemini API",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://github.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "manifest_version": 3
+}

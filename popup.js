@@ -1,147 +1,164 @@
-// popup.js
 document.addEventListener('DOMContentLoaded', function() {
-    // Elements
-    const mainPanel = document.getElementById('main-panel');
-    const settingsPanel = document.getElementById('settings-panel');
-    const repoUrlInput = document.getElementById('repo-url');
-    const actionTypeSelect = document.getElementById('action-type');
-    const commitOptionsDiv = document.getElementById('commit-options');
-    const commitHashInput = document.getElementById('commit-hash');
-    const analyzeBtn = document.getElementById('analyze-btn');
-    const settingsBtn = document.getElementById('settings-btn');
-    const backBtn = document.getElementById('back-btn');
-    const saveSettingsBtn = document.getElementById('save-settings');
-    const geminiApiKeyInput = document.getElementById('gemini-api-key');
-    const githubTokenInput = document.getElementById('github-token');
-    const statusMessage = document.getElementById('status-message');
+    const apiKeySection = document.getElementById('apiKeySection');
+    const analysisSection = document.getElementById('analysisSection');
+    const saveApiKeyButton = document.getElementById('saveApiKey');
+    const analyzeCodeButton = document.getElementById('analyzeCode');
+    const generateReadmeButton = document.getElementById('generateReadme');
+    const changeApiKeyButton = document.getElementById('changeApiKey');
+    const downloadResultButton = document.getElementById('downloadResult');
+    const responseContainer = document.getElementById('responseContainer');
+    const responseElement = document.getElementById('response');
+    const loadingIndicator = document.getElementById('loadingIndicator');
     
-    // Load saved settings
-    chrome.storage.sync.get(['geminiApiKey', 'githubToken'], function(data) {
-      if (data.geminiApiKey) {
-        geminiApiKeyInput.value = data.geminiApiKey;
-      }
-      if (data.githubToken) {
-        githubTokenInput.value = data.githubToken;
+    // Check if API key is already saved
+    chrome.storage.local.get(['geminiApiKey'], function(result) {
+      if (result.geminiApiKey) {
+        apiKeySection.classList.add('hidden');
+        analysisSection.classList.remove('hidden');
       }
     });
     
-    // Toggle between commit report and README generation options
-    actionTypeSelect.addEventListener('change', function() {
-      if (actionTypeSelect.value === 'commit-report') {
-        commitOptionsDiv.classList.remove('hidden');
+    // Save API key
+    saveApiKeyButton.addEventListener('click', function() {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      if (apiKey) {
+        chrome.storage.local.set({ geminiApiKey: apiKey }, function() {
+          apiKeySection.classList.add('hidden');
+          analysisSection.classList.remove('hidden');
+        });
       } else {
-        commitOptionsDiv.classList.add('hidden');
+        alert('Please enter a valid API key');
       }
     });
     
-    // Button to navigate to settings panel
-    settingsBtn.addEventListener('click', function() {
-      mainPanel.classList.add('hidden');
-      settingsPanel.classList.remove('hidden');
+    // Change API key
+    changeApiKeyButton.addEventListener('click', function() {
+      apiKeySection.classList.remove('hidden');
+      analysisSection.classList.add('hidden');
     });
     
-    // Button to navigate back to main panel
-    backBtn.addEventListener('click', function() {
-      settingsPanel.classList.add('hidden');
-      mainPanel.classList.remove('hidden');
-    });
-    
-    // Save settings
-    saveSettingsBtn.addEventListener('click', function() {
-      chrome.storage.sync.set({
-        geminiApiKey: geminiApiKeyInput.value,
-        githubToken: githubTokenInput.value
-      }, function() {
-        showStatus('Settings saved successfully!', 'success');
-        setTimeout(() => {
-          settingsPanel.classList.add('hidden');
-          mainPanel.classList.remove('hidden');
-        }, 1500);
-      });
-    });
-    
-    // Analyze button click handler
-    analyzeBtn.addEventListener('click', function() {
-      const repoUrl = repoUrlInput.value.trim();
-      if (!repoUrl) {
-        showStatus('Please enter a GitHub repository URL', 'error');
-        return;
-      }
+    // Analyze code
+    analyzeCodeButton.addEventListener('click', function() {
+      loadingIndicator.classList.remove('hidden');
+      responseContainer.classList.add('hidden');
       
-      // Extract username and repo name from URL
-      const urlParts = repoUrl.split('/');
-      const username = urlParts[urlParts.indexOf('github.com') + 1];
-      const repoName = urlParts[urlParts.indexOf('github.com') + 2];
-      
-      if (!username || !repoName) {
-        showStatus('Invalid GitHub repository URL', 'error');
-        return;
-      }
-      
-      analyzeBtn.disabled = true;
-      showStatus('Processing...', 'success');
-      
-      chrome.storage.sync.get(['geminiApiKey', 'githubToken'], function(data) {
-        if (!data.geminiApiKey) {
-          showStatus('Please set your Gemini API key in settings', 'error');
-          analyzeBtn.disabled = false;
-          return;
-        }
-        
-        const actionType = actionTypeSelect.value;
-        const commitHash = commitHashInput.value.trim();
-        
-        // Send message to background script
-        chrome.runtime.sendMessage({
-          action: actionType,
-          repoOwner: username,
-          repoName: repoName,
-          commitHash: commitHash,
-          geminiApiKey: data.geminiApiKey,
-          githubToken: data.githubToken || ''
-        }, function(response) {
-          if (response.success) {
-            if (actionType === 'readme-generation') {
-              // Download the README file
-              const blob = new Blob([response.data], {type: 'text/plain'});
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'README.txt';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-              
-              showStatus('README generated and downloaded!', 'success');
-            } else {
-              // Show commit report in a new tab
-              chrome.tabs.create({
-                url: chrome.runtime.getURL('report.html')
-              }, function(tab) {
-                chrome.storage.local.set({
-                  'commitReport': response.data
-                });
-              });
-              
-              showStatus('Commit report generated!', 'success');
-            }
+      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getCode' }, function(response) {
+          if (response && response.code) {
+            const customPrompt = document.getElementById('prompt').value.trim();
+            const defaultPrompt = `Analyze the following GitHub code and generate a structured report with the following details:
+  * Code Overview: Summarize what the code does.
+  * Files Structure: List main components and their purpose.
+  * Code Quality: Identify strengths and potential issues.
+  * Best Practices & Suggestions: Offer coding and documentation recommendations.
+  Here is the code: `;
+            
+            const prompt = customPrompt || defaultPrompt;
+            
+            chrome.storage.local.get(['geminiApiKey'], function(result) {
+              if (result.geminiApiKey) {
+                callGeminiApi(result.geminiApiKey, prompt + response.code);
+              } else {
+                loadingIndicator.classList.add('hidden');
+                alert('API key not found. Please set your Gemini API key.');
+              }
+            });
           } else {
-            showStatus(response.error || 'An error occurred', 'error');
+            loadingIndicator.classList.add('hidden');
+            alert('Could not extract code from the current page.');
           }
-          analyzeBtn.disabled = false;
         });
       });
     });
     
-    function showStatus(message, type) {
-      statusMessage.textContent = message;
-      statusMessage.className = type === 'error' ? 'error' : 'success';
-      statusMessage.classList.remove('hidden');
+    // Generate README
+    generateReadmeButton.addEventListener('click', function() {
+      loadingIndicator.classList.remove('hidden');
+      responseContainer.classList.add('hidden');
       
-      // Hide after 5 seconds
-      setTimeout(() => {
-        statusMessage.classList.add('hidden');
-      }, 5000);
+      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getRepoInfo' }, function(response) {
+          if (response && response.repoData) {
+            const prompt = `Analyze the following GitHub repository and generate a comprehensive README file with:
+  * Project Title & Description (Summarize purpose and features)
+  * Installation Steps (List dependencies and setup instructions)
+  * Usage Guide (Explain how to run the project)
+  * Folder & File Structure (Brief overview)
+  * Contributing Guidelines (How others can contribute)
+  * License Details (If applicable)
+  Here is the repository data: `;
+            
+            chrome.storage.local.get(['geminiApiKey'], function(result) {
+              if (result.geminiApiKey) {
+                callGeminiApi(result.geminiApiKey, prompt + JSON.stringify(response.repoData));
+              } else {
+                loadingIndicator.classList.add('hidden');
+                alert('API key not found. Please set your Gemini API key.');
+              }
+            });
+          } else {
+            loadingIndicator.classList.add('hidden');
+            alert('Could not extract repository information from the current page.');
+          }
+        });
+      });
+    });
+    
+    // Download result
+    downloadResultButton.addEventListener('click', function() {
+      const content = responseElement.textContent;
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gemini-analysis.md';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    
+    function callGeminiApi(apiKey, prompt) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ]
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        loadingIndicator.classList.add('hidden');
+        
+        if (data.candidates && data.candidates.length > 0 && 
+            data.candidates[0].content && 
+            data.candidates[0].content.parts && 
+            data.candidates[0].content.parts.length > 0) {
+          
+          const generatedText = data.candidates[0].content.parts[0].text;
+          responseElement.textContent = generatedText;
+          responseContainer.classList.remove('hidden');
+        } else {
+          throw new Error('Invalid response format from Gemini API');
+        }
+      })
+      .catch(error => {
+        loadingIndicator.classList.add('hidden');
+        alert('Error calling Gemini API: ' + error.message);
+        console.error('Error:', error);
+      });
     }
   });
+  
