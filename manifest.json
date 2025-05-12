@@ -1,0 +1,24 @@
+
+{
+    "manifest_version": 3,
+    "name": "GitHub Analyzer",
+    "version": "1.0",
+    "description": "Analyze GitHub commits and generate README files using Gemini AI",
+    "permissions": ["activeTab", "storage", "scripting"],
+    "host_permissions": [
+      "https://api.github.com/*"
+    ],
+    "action": {
+  "default_popup": "popup.html",
+  "default_icon": "icon48.png"
+},
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://github.com/*"],
+        "js": ["content.js"]
+      }
+    ]
+  }

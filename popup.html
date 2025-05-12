@@ -1,0 +1,124 @@
+<!-- popup.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GitHub Analyzer</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 400px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    .input-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #2ea44f;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #2c974b;
+    }
+    button:disabled {
+      background-color: #94d3a2;
+      cursor: not-allowed;
+    }
+    .settings-btn {
+      background-color: #0366d6;
+      margin-top: 10px;
+    }
+    .settings-btn:hover {
+      background-color: #0255b3;
+    }
+    .hidden {
+      display: none;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .success {
+      color: green;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    hr {
+      margin: 15px 0;
+      border: 0;
+      height: 1px;
+      background-color: #e1e4e8;
+    }
+  </style>
+</head>
+<body>
+  <h1>GitHub Analyzer</h1>
+  
+  <div id="main-panel">
+    <div class="input-group">
+      <label for="repo-url">GitHub Repository URL:</label>
+      <input type="text" id="repo-url" placeholder="https://github.com/username/repo">
+    </div>
+    
+    <div class="input-group">
+      <label for="action-type">Select Action:</label>
+      <select id="action-type">
+        <option value="commit-report">Generate Commit Report</option>
+        <option value="readme-generation">Generate README</option>
+      </select>
+    </div>
+    
+    <div id="commit-options" class="input-group">
+      <label for="commit-hash">Commit Hash (optional):</label>
+      <input type="text" id="commit-hash" placeholder="Leave empty for latest commit">
+    </div>
+    
+    <button id="analyze-btn">Analyze</button>
+    <div id="status-message" class="hidden"></div>
+    
+    <hr>
+    
+    <button id="settings-btn" class="settings-btn">Settings</button>
+  </div>
+  
+  <div id="settings-panel" class="hidden">
+    <div class="input-group">
+      <label for="gemini-api-key">Gemini API Key:</label>
+      <input type="password" id="gemini-api-key" placeholder="Enter your Gemini API key">
+    </div>
+    
+    <div class="input-group">
+      <label for="github-token">GitHub Personal Access Token (optional):</label>
+      <input type="password" id="github-token" placeholder="For access to private repos">
+    </div>
+    
+    <button id="save-settings">Save Settings</button>
+    <button id="back-btn" class="settings-btn">Back</button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
